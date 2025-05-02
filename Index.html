@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>News Aggregator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .news-section {
+      background: white;
+      margin: 20px auto;
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 1000px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .news-section h2 {
+      border-bottom: 2px solid #ccc;
+      padding-bottom: 8px;
+    }
+    .article {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      background: #f9f9f9;
+      padding: 12px;
+      margin: 10px 0;
+      border-left: 4px solid #4CAF50;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #000;
+      transition: background 0.3s;
+    }
+    .article:hover {
+      background-color: #e8f5e9;
+    }
+    .text-content {
+      flex: 1;
+      margin-right: 15px;
+    }
+    .text-content h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+    .text-content p {
+      margin: 0;
+      font-size: 14px;
+      color: #333;
+    }
+    .image {
+      width: 120px;
+      height: 80px;
+      flex-shrink: 0;
+      object-fit: cover;
+      border-radius: 6px;
+      background: #ddd;
+    }
+    @media (max-width: 600px) {
+      .article {
+        flex-direction: column;
+      }
+      .image {
+        width: 100%;
+        height: auto;
+        margin-top: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>News Aggregator</h1>
+
+  <div class="news-section" id="nigeria-news">
+    <h2>Nigeria News</h2>
+    <div class="articles"></div>
+  </div>
+
+  <div class="news-section" id="poland-news">
+    <h2>Poland News</h2>
+    <div class="articles"></div>
+  </div>
+
+  <div class="news-section" id="global-news">
+    <h2>Global Politics News</h2>
+    <div class="articles"></div>
+  </div>
+
+  <script>
+    const apiKey = 'pub_842126acaebf566303a5d45e054baf6ce4cee';
+    const baseUrl = 'https://newsdata.io/api/1/latest';
+
+    async function fetchNews({ id, country, category }) {
+      const url = new URL(baseUrl);
+      url.searchParams.append('apikey', apiKey);
+      if (country) url.searchParams.append('country', country);
+      if (category) url.searchParams.append('category', category);
+      if (country === 'ng' || (category && country !=='pl')) url.searchParams.append('language', 'en');
+     // if(country)
+     // console.log(url.toString())
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const container = document.querySelector(`#${id} .articles`);
+
+        if (data.results && data.results.length > 0) {
+          const articles = data.results.slice(0, 10);
+
+          for (let article of articles) {
+            const link = document.createElement('a');
+            link.className = 'article';
+            link.href = article.link;
+            link.target = '_blank';
+
+            const imgSrc = article.image_url || 'https://via.placeholder.com/120x80?text=No+Image';
+            const title = article.title || 'No Title';
+            const desc = article.description || '';
+
+            link.innerHTML = `
+              <div class="text-content">
+                <h3>${title}</h3>
+                <p>${desc}</p>
+              </div>
+              <img src="${imgSrc}" alt="Img" class="image" onerror="this.onerror=null; this.src='https://placehold.co/120x80?text=No+Image';">
+            `;
+
+            container.appendChild(link);
+
+            // If Polish, try translating after display
+            if (country === 'pl') {
+              try {
+                const [translatedTitle, translatedDesc] = await Promise.all([
+                  translateText(title),
+                  translateText(desc)
+                ]);
+                link.querySelector('h3').textContent = translatedTitle;
+                link.querySelector('p').textContent = translatedDesc;
+              } catch (err) {
+                console.warn('Translation failed:', err);
+              }
+            }
+          }
+        } else {
+          container.innerHTML = '<p>No news available.</p>';
+        }
+      } catch (err) {
+        console.error('Fetch error:', err);
+        document.querySelector(`#${id} .articles`).innerHTML = '<p>Error loading news.</p>';
+      }
+    }
+
+    async function translateText(text) {
+      if (!text) return '';
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      return data[0].map(segment => segment[0]).join('');
+    }
+
+    fetchNews({ id: 'nigeria-news', country: 'ng', category:"politics" });
+    fetchNews({ id: 'poland-news', country: 'pl', category:'politics'});
+    fetchNews({ id: 'global-news', category: 'politics' });
+  </script>
+</body>
+</html>
